@@ -49,9 +49,16 @@ def upload_novel():
         "rclone", "copy", novel_name, get_drive_path(""), "--config", RCLONE_CONFIG, "--update"
     ], check=True)
 
+# ブラウザ風のリクエストを送るためのヘッダー
+def get_headers():
+    return {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
 def loadfromhtml(url: str) -> str:
     try:
-        with urllib.request.urlopen(url) as res:
+        req = urllib.request.Request(url, headers=get_headers())
+        with urllib.request.urlopen(req) as res:
             return res.read().decode()
     except HTTPError as e:
         print(f"エラー: {url} にアクセスできません (HTTP {e.code})")
