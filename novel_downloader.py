@@ -14,7 +14,6 @@ RCLONE_REMOTE = "drive"
 RCLONE_CONFIG = "rclone.conf"
 
 # Google Drive のパス
-
 def get_drive_path(filename):
     return f"{RCLONE_REMOTE}:/{filename}"
 
@@ -32,32 +31,65 @@ def loadfromhtml(url: str) -> str:
         print(f"エラー: {url} にアクセスできません (HTTP {e.code})")
         return ""
 
+# 過去のダウンロード履歴を読み込む
+def download_history():
+    if os.path.exists("history.txt"):
+        return
+    subprocess.run([
+        "rclone", "copyto", get_drive_path("history.txt"), "history.txt", "--config", RCLONE_CONFIG
+    ], check=False)
 
+# 履歴をロード
+def load_history():
+    global history_dict
+    if not os.path.exists("history.txt"):
+        return
+    with open("history.txt", "r", encoding="utf-8") as f:
+        for line in f:
+            if '|' in line:
+                u, i = line.strip().split('|')
+                history_dict[u.strip()] = int(i.strip())
+
+# 履歴を更新
+def update_history():
+    global history_dict
+    history_dict[url] = len(page_list)
+    with open("history.txt", "w", encoding="utf-8") as f:
+        for k, v in history_dict.items():
+            f.write(f"{k} | {v}\n")
+    subprocess.run([
+        "rclone", "copyto", "history.txt", get_drive_path("history.txt"), "--config", RCLONE_CONFIG
+    ], check=True)
+
+# 小説をGoogle Driveにアップロード
+def upload_novel():
+    subprocess.run([
+        "rclone", "copy", novel_name, get_drive_path(""), "--config", RCLONE_CONFIG, "--update"
+    ], check=True)
+
+# タグを取り除く
 def elimbodytags(base: str) -> str:
     return re.sub('<.*?>', '', base).replace(' ', '')
 
-
+# 各サイトの小説タイトル取得関数
 def get_novel_title_kakuyomu(body: str) -> str:
     m = re.search(r'<title>(.*?) - カクヨム</title>', body)
     return re.sub(r'[\\/:*?"<>|]', '', m.group(1).strip()) if m else "無題"
-
 
 def get_novel_title_novelup(body: str) -> str:
     m = re.search(r'<title>(.*?) \| 小説投稿サイトノベルアップ＋</title>', body)
     return re.sub(r'[\\/:*?"<>|]', '', m.group(1).strip()) if m else "無題"
 
-
 def get_novel_title_ncode(body: str) -> str:
     m = re.search(r'<p class="novel_title">(.*?)</p>', body)
     return re.sub(r'[\\/:*?"<>|]', '', m.group(1).strip()) if m else "無題"
 
-
+# 目次取得関数
 def parse_kakuyomu_toc():
     global page_list
     html = loadfromhtml(url)
     matches = re.findall(r'<a href="(/works/\d+/episodes/\d+)">', html)
     page_list = ["https://kakuyomu.jp" + m for m in matches]
-
 
 def parse_novelup_toc():
     global page_list
@@ -72,13 +104,11 @@ def parse_novelup_toc():
         page_list.extend(matches)
         page_number += 1
 
-
 def parse_ncode_toc():
     global page_list
     html = loadfromhtml(url)
     page_list = re.findall(r'<a href="(/n\w+/\d+/)">', html)
     page_list = ["https://ncode.syosetu.com" + p for p in page_list]
-
 
 def parse_novel18_toc():
     global page_list
@@ -86,7 +116,7 @@ def parse_novel18_toc():
     page_list = re.findall(r'<a href="(/n\w+/\d+/)">', html)
     page_list = ["https://novel18.syosetu.com" + p for p in page_list]
 
-
+# 各ページの保存
 def parse_and_save_page(page_url: str, index: int):
     html = loadfromhtml(page_url)
     if 'kakuyomu.jp' in page_url:
@@ -109,18 +139,18 @@ def parse_and_save_page(page_url: str, index: int):
         f.write(f"【タイトル】{title}\r\n\r\n{content}")
     print(f"{index:03}.txt を保存しました。")
 
-
+# 各ページを読み込む
 def loadeachpage():
     start_index = history_dict.get(url, 0) + 1
     for i, purl in enumerate(page_list[start_index - 1:], start=start_index):
         parse_and_save_page(purl, i)
     print("保存完了。")
 
-
+# メイン処理
 def main():
     global url, novel_name
     print("小説ダウンローダー起動")
-    download_history()
+    download_history()  # 関数が定義されていないというエラーを修正
     load_history()
 
     with open("urls.txt", "r", encoding="utf-8") as f:
@@ -153,7 +183,6 @@ def main():
         upload_novel()
 
     update_history()
-
 
 if __name__ == '__main__':
     main()
