@@ -3,6 +3,7 @@ name: Daily Novel Downloader
 on:
   schedule:
     - cron: '0 0 * * *'  # 日本時間の午前0時に実行（UTC時間では午後3時）
+  workflow_dispatch:  # 手動トリガー用
 
 jobs:
   run_script:
