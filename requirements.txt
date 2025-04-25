@@ -1,2 +1,8 @@
+os
+re
+urllib.request
+codecs
+subprocess
+HTTPError
 beautifulsoup4
 requests
