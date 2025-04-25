@@ -55,9 +55,14 @@ def get_headers():
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
 
+# R18サイト用にcookieを追加
+def get_cookies():
+    return {'over18': 'yes'}
+
+# URLからHTMLを取得
 def loadfromhtml(url: str) -> str:
     try:
-        req = urllib.request.Request(url, headers=get_headers())
+        req = urllib.request.Request(url, headers={**get_headers(), **get_cookies()})
         with urllib.request.urlopen(req) as res:
             return res.read().decode()
     except HTTPError as e:
