@@ -18,11 +18,15 @@ jobs:
         with:
           python-version: '3.8'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
 
-      - name: Set up rclone
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: Set up rclone config
         run: |
           mkdir -p ~/.config/rclone
           cp rclone.conf ~/.config/rclone/rclone.conf
