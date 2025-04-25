@@ -1,0 +1,27 @@
+name: Daily Novel Downloader
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 日本時間の午前0時に実行（UTC時間では午後3時）
+
+jobs:
+  run_script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run novel downloader script
+        run: |
+          python novel_downloader.py
