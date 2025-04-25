@@ -1,4 +1,3 @@
-# novel_downloader.py
 import os
 import re
 import urllib.request
@@ -19,46 +18,15 @@ RCLONE_CONFIG = "rclone.conf"
 def get_drive_path(filename):
     return f"{RCLONE_REMOTE}:/{filename}"
 
-
-def download_history():
-    if os.path.exists("history.txt"):
-        return
-    subprocess.run([
-        "rclone", "copyto", get_drive_path("history.txt"), "history.txt", "--config", RCLONE_CONFIG
-    ], check=False)
-
-
-def load_history():
-    global history_dict
-    if not os.path.exists("history.txt"):
-        return
-    with open("history.txt", "r", encoding="utf-8") as f:
-        for line in f:
-            if '|' in line:
-                u, i = line.strip().split('|')
-                history_dict[u.strip()] = int(i.strip())
-
-
-def update_history():
-    global history_dict
-    history_dict[url] = len(page_list)
-    with open("history.txt", "w", encoding="utf-8") as f:
-        for k, v in history_dict.items():
-            f.write(f"{k} | {v}\n")
-    subprocess.run([
-        "rclone", "copyto", "history.txt", get_drive_path("history.txt"), "--config", RCLONE_CONFIG
-    ], check=True)
-
-
-def upload_novel():
-    subprocess.run([
-        "rclone", "copy", novel_name, get_drive_path(""), "--config", RCLONE_CONFIG, "--update"
-    ], check=True)
-
-
+# HTTPリクエスト時にUser-Agentを設定
 def loadfromhtml(url: str) -> str:
     try:
-        with urllib.request.urlopen(url) as res:
+        # リクエストヘッダーにUser-Agentを追加
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as res:
             return res.read().decode()
     except HTTPError as e:
         print(f"エラー: {url} にアクセスできません (HTTP {e.code})")
