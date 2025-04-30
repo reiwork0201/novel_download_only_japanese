@@ -1,8 +1,8 @@
-name: Download Narou Novels
+name: Download NarouR18 Novels
 
 on:
   schedule:
-    - cron: '0 3 * * *'  # 毎日03:00 JSTに実行
+    - cron: '0 15 * * *'  # UTCで毎日15:00、JSTでは午前零時に実行
   workflow_dispatch:     # 手動実行も可
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
         env:
           RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
         run: |
-          python download_narouR18.py
+          python narouR18/download_narouR18.py
 
       - name: Upload Novel Files to Google Drive
         env:
