@@ -66,7 +66,7 @@ for novel_url in urls:
         title_text = title_text.strip()
 
         download_from = history.get(novel_url, 0)
-        os.makedirs(f'/tmp/novel_dl/{title_text}', exist_ok=True)
+        os.makedirs(f'/tmp/narou_dl/{title_text}', exist_ok=True)
 
         sub_len = len(sublist)
         new_max = download_from
@@ -80,7 +80,7 @@ for novel_url in urls:
             file_name = f'{i+1:03d}.txt'
             folder_num = (i // 999) + 1
             folder_name = f'{folder_num:03d}'
-            folder_path = f'/tmp/novel_dl/{title_text}/{folder_name}'
+            folder_path = f'/tmp/narou_dl/{title_text}/{folder_name}'
             os.makedirs(folder_path, exist_ok=True)
             file_path = f'{folder_path}/{file_name}'
 
@@ -104,4 +104,4 @@ for novel_url in urls:
 save_history(history)
 
 # Google Driveへアップロード
-subprocess.run(['rclone', 'copy', '/tmp/novel_dl', 'drive:', '--transfers=4', '--checkers=8', '--fast-list'], check=True)
+subprocess.run(['rclone', 'copy', '/tmp/narou_dl', 'drive:', '--transfers=4', '--checkers=8', '--fast-list'], check=True)
