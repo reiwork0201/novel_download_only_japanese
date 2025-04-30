@@ -1,4 +1,4 @@
-name: Download NarouR18 Novels
+name: Download Narou Novels
 
 on:
   schedule:
@@ -26,14 +26,25 @@ jobs:
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
+      - name: Copy rclone config
+        run: |
+          mkdir -p $HOME/.config/rclone
+          cp ${{ github.workspace }}/rclone.conf $HOME/.config/rclone/rclone.conf
+
       - name: Run Python Script
         env:
           RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
         run: |
           python download_narouR18.py
 
-      - name: Upload to Google Drive via rclone
+      - name: Upload Novel Files to Google Drive
         env:
           RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
         run: |
-          rclone copy /tmp/novel_dl drive: --transfers=4 --checkers=8 --fast-list
+          rclone copy /tmp/narouR18_dl drive:novels --transfers=4 --checkers=8 --fast-list
+
+      - name: Upload History File to Google Drive
+        env:
+          RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
+        run: |
+          rclone copy /tmp/narouR18_dl/小説家になろうR18ダウンロード経歴.txt drive: --drive-shared-with-me --update
