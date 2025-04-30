@@ -3,9 +3,9 @@ import requests
 from bs4 import BeautifulSoup
 
 BASE_URL = 'https://novel18.syosetu.com'
-TMP_DIR = '/tmp/narouR18_dl'  # 保存先を変更
-HISTORY_FILE = '小説家になろうR18ダウンロード経歴.txt'
-HISTORY_PATH = os.path.join(TMP_DIR, HISTORY_FILE)
+TMP_DIR = '/tmp/narouR18_dl'
+HISTORY_FILENAME = '小説家になろうR18ダウンロード経歴.txt'
+HISTORY_PATH = os.path.join(TMP_DIR, HISTORY_FILENAME)
 
 def fetch_url(url):
     ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'
@@ -39,8 +39,8 @@ def main():
     novel_id = input("小説IDを入力してください (例: n1234abcd): ")
     novel_url = f'{BASE_URL}/{novel_id}/'
 
-    # 履歴ファイルをDriveから取得（GitHub Actionsではrcloneで取得前提）
-    os.system(f"rclone copy drive:{HISTORY_FILE} {TMP_DIR} --drive-shared-with-me --update")
+    # rcloneで履歴ファイルを取得
+    os.system(f"rclone copy drive:{HISTORY_FILENAME} {TMP_DIR} --drive-shared-with-me --update")
 
     history = load_history()
     latest_downloaded = history.get(novel_url, 0)
@@ -99,7 +99,7 @@ def main():
     if new_latest > latest_downloaded:
         history[novel_url] = new_latest
         save_history(history)
-        os.system(f"rclone copy {HISTORY_PATH} drive:{HISTORY_FILE} --drive-shared-with-me --update")
+        os.system(f"rclone copy {HISTORY_PATH} drive:{HISTORY_FILENAME} --drive-shared-with-me --update")
         print(f'履歴ファイルを更新しアップロードしました。最新話数: {new_latest}')
     else:
         print('新規ダウンロードはありませんでした。')
