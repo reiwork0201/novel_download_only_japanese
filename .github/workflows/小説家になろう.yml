@@ -36,4 +36,4 @@ jobs:
         env:
           RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
         run: |
-          rclone copy /tmp/novel_dl drive: --transfers=4 --checkers=8 --fast-list
+          rclone copy /tmp/narou_dl drive: --transfers=4 --checkers=8 --fast-list
