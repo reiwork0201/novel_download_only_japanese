@@ -1,0 +1,27 @@
+name: Kakuyomu Downloader
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # 毎日0時に実行
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+          mkdir -p ~/.config/rclone
+          echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
+
+      - name: Run kakuyomu downloader
+        run: |
+          python3 kakuyomu/kakuyomu_downloader.py
+
+      - name: Upload history file to Google Drive
+        run: |
+          rclone move kakuyomu/カクヨムダウンロード経歴.txt drive:/kakuyomu_dl/ --create-dirs --transfers=1 --progress
