@@ -31,14 +31,18 @@ def sanitize_filename(filename):
 def read_history():
     """
     Google Drive からのダウンロード履歴を読み込み、次にダウンロードすべき話数を取得します。
+    履歴ファイルは URL | 最終話数 の形式です。
     """
     history_file = '/tmp/narouR18_dl/小説家になろうR18ダウンロード経歴.txt'
+    history = {}
     if os.path.exists(history_file):
         with open(history_file, 'r', encoding='UTF-8') as f:
             lines = f.readlines()
-        history = {line.split('|')[0]: int(line.split('|')[1].strip()) for line in lines}
-        return history
-    return {}
+        for line in lines:
+            # URL | 最終話数 の形式
+            url, last_chapter = line.split(' | ')
+            history[url.strip()] = int(last_chapter.strip())
+    return history
 
 def update_history(novel_url, last_chapter):
     """
@@ -56,7 +60,7 @@ def download_novel(novel_id, history):
     url = DOWNLOAD_URL
     sublist = []
     title_text = ""
-    last_chapter = history.get(novel_id, 0)
+    last_chapter = history.get(DOWNLOAD_URL, 0)  # 履歴ファイルに基づき開始話数を決定
 
     while True:
         res = fetch_url(url)
@@ -106,7 +110,7 @@ def download_novel(novel_id, history):
         print(f'{file_name} をダウンロードしました ({i}/{sub_len})')
         file_count += 1
 
-    update_history(novel_id, file_count - 1)
+    update_history(DOWNLOAD_URL, file_count - 1)
 
 def main():
     """
