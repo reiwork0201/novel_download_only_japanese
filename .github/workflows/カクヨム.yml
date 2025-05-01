@@ -20,7 +20,7 @@ jobs:
 
       - name: Run kakuyomu downloader
         run: |
-          python3 kakuyomu/kakuyomu_downloader.py
+          python3 kakuyomu/download_kakuyomu.py
 
       - name: Upload history file to Google Drive
         run: |
