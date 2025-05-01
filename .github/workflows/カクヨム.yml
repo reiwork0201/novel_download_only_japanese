@@ -1,39 +1,36 @@
-name: Download Kakuyomu Novels
+name: Kakuyomu Downloader
 
 on:
   schedule:
-    - cron: '0 15 * * *'  # 毎日 15:00 UTC（= 日本時間 0:00）に実行
-  workflow_dispatch:       # 手動実行も許可
+    - cron: "15 15 * * *"  # JST 0:00 相当
+  workflow_dispatch:
 
 jobs:
   download:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-
-      - name: Install Python Dependencies
+      - name: Install rclone manually
         run: |
-          pip install requests beautifulsoup4
+          curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip
+          unzip rclone-current-linux-amd64.zip
+          cd rclone-*-linux-amd64
+          sudo cp rclone /usr/local/bin/
+          rclone version
 
-      - name: Install rclone
+      - name: Configure rclone
         run: |
-          curl https://rclone.org/install.sh | sudo bash
+          mkdir -p ~/.config/rclone
+          cp ./rclone.conf ~/.config/rclone/rclone.conf
 
-      - name: Run Python Script
-        env:
-          RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
+      - name: Install Python dependencies
         run: |
-          python kakuyomu/download_kakuyomu.py
+          python3 -m pip install --upgrade pip
+          pip install beautifulsoup4 requests
 
-      - name: Upload to Google Drive via rclone
-        env:
-          RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
+      - name: Run Kakuyomu downloader
         run: |
-          rclone copy /tmp/kakuyomu_dl drive: --transfers=4 --checkers=8 --fast-list
+          python3 kakuyomu/download_kakuyomu.py
