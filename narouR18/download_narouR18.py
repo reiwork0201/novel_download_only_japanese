@@ -1,6 +1,7 @@
 import os
 import requests
 from bs4 import BeautifulSoup
+import subprocess
 
 BASE_URL = 'https://novel18.syosetu.com'
 
@@ -28,10 +29,16 @@ def sanitize_filename(filename):
     invalid_chars = r'\/:*?"<>|'
     return ''.join(c for c in filename if c not in invalid_chars)
 
+def download_history_from_drive():
+    """
+    Google Drive から履歴ファイルをダウンロードします。
+    """
+    subprocess.run(["rclone", "copy", "drive:/小説家になろうR18ダウンロード経歴.txt", "/tmp/narouR18_dl/小説家になろうR18ダウンロード経歴.txt", "--transfers=1"], check=True)
+
 def read_history():
     """
-    Google Drive からのダウンロード履歴を読み込み、次にダウンロードすべき話数を取得します。
-    履歴ファイルは URL | 最終話数 の形式です。
+    ローカルにダウンロードした履歴ファイルを読み込みます。
+    履歴ファイルの形式: URL | 最終話数
     """
     history_file = '/tmp/narouR18_dl/小説家になろうR18ダウンロード経歴.txt'
     history = {}
@@ -39,7 +46,6 @@ def read_history():
         with open(history_file, 'r', encoding='UTF-8') as f:
             lines = f.readlines()
         for line in lines:
-            # URL | 最終話数 の形式
             url, last_chapter = line.split(' | ')
             history[url.strip()] = int(last_chapter.strip())
     return history
@@ -118,6 +124,10 @@ def main():
     1. 小説IDをリポジトリの履歴ファイルから取得
     2. 各小説をダウンロード
     """
+    # Google Drive から履歴ファイルをダウンロード
+    download_history_from_drive()
+
+    # 履歴ファイルを読み込み
     history = read_history()
 
     # 小説家になろうR18.txt から URL を取得
