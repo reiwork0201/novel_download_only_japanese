@@ -4,12 +4,15 @@ import urllib.request
 import re
 import time
 import os
+import subprocess
 
 # グローバル変数
 page_list = []  # 各話のURL
 url = ''  # 小説URL
 startn = 0  # DL開始番号
 novel_name = ''  # 小説名（自動取得）
+history_file = 'カクヨムダウンロード経歴.txt'  # 履歴ファイルのパス
+history = {}  # URL | 最終話数の履歴情報
 
 # HTMLファイルのダウンロード
 def loadfromhtml(url: str) -> str:
@@ -126,6 +129,39 @@ def upload_to_drive():
     os.system(f"rclone move {novel_name} drive:/kakuyomu_dl/ --create-dirs --transfers=1 --progress")
     print(f"{novel_name} を Google Drive にアップロードしました。")
 
+# 履歴ファイルを読み込む
+def load_history():
+    global history
+    try:
+        # Google Drive から履歴ファイルをダウンロード
+        subprocess.run(["rclone", "copy", "drive:/カクヨムダウンロード経歴.txt", history_file, "--progress"])
+        # 履歴ファイルを読み込む
+        with open(history_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                url, last_chapter = line.strip().split(' | ')
+                history[url] = int(last_chapter)
+    except Exception as e:
+        print(f"履歴の読み込みに失敗しました: {e}")
+
+# 履歴ファイルをアップロードする
+def upload_history():
+    try:
+        subprocess.run(["rclone", "copy", history_file, "drive:/カクヨムダウンロード経歴.txt", "--progress"])
+        print("履歴ファイルを Google Drive にアップロードしました。")
+    except Exception as e:
+        print(f"履歴のアップロードに失敗しました: {e}")
+
+# 履歴に基づいてダウンロード開始位置を決定
+def set_start_index():
+    global startn
+    # 履歴に基づいて最終話数を取得
+    if url in history:
+        startn = history[url] + 1  # 次の話からダウンロード開始
+        print(f"履歴に基づき、{startn} 話目からダウンロードを開始します。")
+    else:
+        startn = 0  # 履歴がなければ最初から
+        print("履歴がないため、最初からダウンロードを開始します。")
+
 # メイン処理
 def main():
     global url, startn, novel_name
@@ -146,6 +182,9 @@ def main():
         print("カクヨム.txt ファイルが見つかりません。")
         return
 
+    # 履歴ファイルを読み込む
+    load_history()
+
     # 目次ページのHTMLを取得
     toppage_content = loadfromhtml(url)
 
@@ -163,12 +202,20 @@ def main():
     # フォルダ作成
     os.makedirs(novel_name, exist_ok=True)
 
+    # 履歴に基づいてダウンロード開始位置を決定
+    set_start_index()
+
     # 目次解析
     if parsetoppage(toppage_content) == 0:
         loadeachpage()
 
     # 小説ファイルのアップロード
     upload_to_drive()
+
+    # 新しい履歴を保存してアップロード
+    with open(history_file, 'w', encoding='utf-8') as f:
+        f.write(f"{url} | {len(page_list)}\n")
+    upload_history()
 
 # スクリプト実行
 if __name__ == '__main__':
