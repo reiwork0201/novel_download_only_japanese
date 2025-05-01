@@ -30,7 +30,7 @@ jobs:
         env:
           RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
         run: |
-          python narou/download_narouR18.py
+          python narouR18/download_narouR18.py
 
       - name: Upload to Google Drive via rclone
         env:
