@@ -4,7 +4,6 @@ import urllib.request
 import re
 import time
 import os
-import subprocess
 
 # グローバル変数
 page_list = []  # 各話のURL
@@ -12,30 +11,25 @@ url = ''  # 小説URL
 startn = 0  # DL開始番号
 novel_name = ''  # 小説名（自動取得）
 
-
 # HTMLファイルのダウンロード
 def loadfromhtml(url: str) -> str:
     with urllib.request.urlopen(url) as res:
         html_content = res.read().decode()
     return html_content
 
-
 # 余分なタグを除去
 def elimbodytags(base: str) -> str:
     return re.sub('<.*?>', '', base).replace(' ', '')
 
-
 # 改行タグを変換
 def changebrks(base: str) -> str:
     return re.sub('<br />', '\r\n', base)
-
 
 # タグ変換とフィルター実行
 def tagfilter(line: str) -> str:
     tmp = changebrks(line)
     tmp = elimbodytags(tmp)
     return tmp
-
 
 # 小説タイトルの取得
 def get_novel_title(body: str) -> str:
@@ -46,7 +40,6 @@ def get_novel_title(body: str) -> str:
         title = re.sub(r'[\\/:*?"<>|]', '', title)
         return title
     return "無題"
-
 
 # 目次ページの解析と各話のURL取得
 def parsetoppage(body: str) -> int:
@@ -72,7 +65,6 @@ def parsetoppage(body: str) -> int:
     print(f"{len(page_list)} 話の目次情報を取得しました。")
     return 0
 
-
 # 各話の本文解析と保存処理
 def parsepage(body: str, index: int):
     global novel_name
@@ -96,7 +88,7 @@ def parsepage(body: str, index: int):
         if text_content:
             folder_index = (index - 1) // 999 + 1  # サブフォルダ番号（999話ごと）
             subfolder_name = f"{folder_index:03}"
-            subfolder_path = os.path.join('/tmp/kakuyomu_dl', novel_name, subfolder_name)
+            subfolder_path = os.path.join(novel_name, subfolder_name)
 
             os.makedirs(subfolder_path, exist_ok=True)  # サブフォルダ作成
 
@@ -116,7 +108,6 @@ def parsepage(body: str, index: int):
         else:
             print(f"{index} 話の本文が見つかりませんでした。")
 
-
 # 各話のページをダウンロードして保存
 def loadeachpage() -> int:
     n_pages_to_download = len(page_list)
@@ -129,21 +120,11 @@ def loadeachpage() -> int:
 
     print(f"{n_pages_to_download - startn} 話のエピソードを取得しました。")
 
-
-# Google Drive にアップロード（Python内で行う）
+# 小説ファイルを Google Drive にアップロード
 def upload_to_drive():
-    print("Google Drive にアップロード中...")
-    
-    # 小説のディレクトリを探索し、ファイルのみをアップロード
-    for subdir, _, files in os.walk('/tmp/kakuyomu_dl'):
-        for file in files:
-            file_path = os.path.join(subdir, file)
-            # 小説ファイルのみ（.txtファイル）をアップロード
-            if file.endswith(".txt"):
-                destination_path = f"drive:/kakuyomu_dl/{file}"
-                subprocess.run(["rclone", "move", file_path, destination_path, "--progress", "--transfers=1"])
-                print(f"{file_path} を Google Drive にアップロードしました。")
-
+    # Google Drive にアップロードする処理を subprocess で実行
+    os.system(f"rclone move {novel_name} drive:/kakuyomu_dl/ --create-dirs --transfers=1 --progress")
+    print(f"{novel_name} を Google Drive にアップロードしました。")
 
 # メイン処理
 def main():
@@ -151,13 +132,19 @@ def main():
 
     print("kakudlpy ver1.1 2025/03/07 (c) INOUE, masahiro")
 
-    while True:
-        url_input = input("カクヨム作品トップページのURLを入力してください: ").strip()
-        if re.match(r'https://kakuyomu.jp/works/\d{19,20}', url_input):
-            url = url_input
-            break
-        else:
-            print("正しいカクヨム作品トップページURLを入力してください。")
+    # カクヨム.txt から URL を取得
+    try:
+        with open('kakuyomu/カクヨム.txt', 'r', encoding='utf-8') as f:
+            url_input = f.readline().strip()  # URL を読み取る
+            if re.match(r'https://kakuyomu.jp/works/\d{19,20}', url_input):
+                url = url_input
+                print(f"取得したURL: {url}")
+            else:
+                print("正しいカクヨム作品トップページURLがカクヨム.txtにありません。")
+                return
+    except FileNotFoundError:
+        print("カクヨム.txt ファイルが見つかりません。")
+        return
 
     # 目次ページのHTMLを取得
     toppage_content = loadfromhtml(url)
@@ -182,7 +169,6 @@ def main():
 
     # 小説ファイルのアップロード
     upload_to_drive()
-
 
 # スクリプト実行
 if __name__ == '__main__':
