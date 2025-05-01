@@ -16,7 +16,7 @@ jobs:
         run: |
           curl https://rclone.org/install.sh | sudo bash
           mkdir -p ~/.config/rclone
-          echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
+          cp ./rclone.conf ~/.config/rclone/rclone.conf  # ← 修正ここ！
 
       - name: Install Python dependencies
         run: |
