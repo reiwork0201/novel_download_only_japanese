@@ -2,7 +2,7 @@ name: Kakuyomu Downloader
 
 on:
   schedule:
-    - cron: "0 0 * * *"  # 毎日0時に実行
+    - cron: "0 0 * * *"  # 日本時間で毎日0時に実行
   workflow_dispatch:
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
         run: |
           curl https://rclone.org/install.sh | sudo bash
           mkdir -p ~/.config/rclone
-          cp ./rclone.conf ~/.config/rclone/rclone.conf  # リポジトリのrclone.confを配置
+          echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
 
       - name: Install Python dependencies
         run: |
