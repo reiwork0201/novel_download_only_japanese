@@ -27,6 +27,10 @@ def upload_history_to_drive():
     ], check=True)
 
 def read_history():
+    # HISTORY_FILEがディレクトリでないか確認
+    if os.path.isdir(HISTORY_FILE):
+        raise IsADirectoryError(f"{HISTORY_FILE}はディレクトリです。")
+
     history = {}
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, encoding="utf-8") as f:
