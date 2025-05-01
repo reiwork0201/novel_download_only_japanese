@@ -12,30 +12,35 @@ url = ''  # 小説URL
 startn = 0  # DL開始番号
 novel_name = ''  # 小説名（自動取得）
 
-# Google Driveからファイルを読み取る
+
+# rcloneを使ってGoogle Driveから経歴ファイルをダウンロード
 def download_history_from_drive():
-    # rcloneを使ってGoogle Driveからファイルをローカルにダウンロード
+    # rcloneコマンドを使ってGoogle Driveからカクヨムダウンロード経歴.txtをダウンロード
     cmd = ['rclone', 'copy', 'drive:/カクヨムダウンロード経歴.txt', './カクヨムダウンロード経歴.txt']
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Error downloading history from Google Drive: {result.stderr}")
         sys.exit(1)
+    print("カクヨムダウンロード経歴.txtをGoogle Driveからダウンロードしました。")
 
-# 経歴ファイルを読み込んで、ダウンロードを再開するための話数を取得
-def get_last_downloaded_episode():
+
+# 履歴ファイルを解析して開始番号を設定
+def read_history():
     global startn
-    history_file = 'カクヨムダウンロード経歴.txt'
-
-    if os.path.exists(history_file):
-        with open(history_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-            for line in lines:
-                if line.startswith(url):
-                    startn = int(line.strip().split(" | ")[1])
-                    break
+    if os.path.exists('./カクヨムダウンロード経歴.txt'):
+        with open('./カクヨムダウンロード経歴.txt', 'r', encoding='utf-8') as f:
+            history = f.readlines()
+        
+        # 履歴の読み込みと開始番号設定
+        for line in history:
+            url_in_history, last_episode = line.strip().split(' | ')
+            if url_in_history == url:
+                startn = int(last_episode)  # 履歴にある最後の話からダウンロードを開始
+                print(f"前回のダウンロードは{startn}話目まででした。")
+                return
     else:
-        print("経歴ファイルが存在しません。最初からダウンロードを開始します。")
-        startn = 0
+        print("履歴ファイルが存在しません。最初からダウンロードを開始します。")
+
 
 # HTMLファイルのダウンロード
 def loadfromhtml(url: str) -> str:
@@ -43,19 +48,23 @@ def loadfromhtml(url: str) -> str:
         html_content = res.read().decode()
     return html_content
 
+
 # 余分なタグを除去
 def elimbodytags(base: str) -> str:
     return re.sub('<.*?>', '', base).replace(' ', '')
 
+
 # 改行タグを変換
 def changebrks(base: str) -> str:
     return re.sub('<br />', '\r\n', base)
+
 
 # タグ変換とフィルター実行
 def tagfilter(line: str) -> str:
     tmp = changebrks(line)
     tmp = elimbodytags(tmp)
     return tmp
+
 
 # 小説タイトルの取得
 def get_novel_title(body: str) -> str:
@@ -66,6 +75,7 @@ def get_novel_title(body: str) -> str:
         title = re.sub(r'[\\/:*?"<>|]', '', title)
         return title
     return "無題"
+
 
 # 目次ページの解析と各話のURL取得
 def parsetoppage(body: str) -> int:
@@ -90,6 +100,7 @@ def parsetoppage(body: str) -> int:
 
     print(f"{len(page_list)} 話の目次情報を取得しました。")
     return 0
+
 
 # 各話の本文解析と保存処理
 def parsepage(body: str, index: int):
@@ -134,6 +145,7 @@ def parsepage(body: str, index: int):
         else:
             print(f"{index} 話の本文が見つかりませんでした。")
 
+
 # 各話のページをダウンロードして保存
 def loadeachpage() -> int:
     n_pages_to_download = len(page_list)
@@ -146,35 +158,24 @@ def loadeachpage() -> int:
 
     print(f"{n_pages_to_download - startn} 話のエピソードを取得しました。")
 
+
 # メイン処理
 def main():
     global url, startn, novel_name
 
     print("kakudlpy ver1.1 2025/03/07 (c) INOUE, masahiro")
 
-    # Google Driveからダウンロード経歴ファイルを取得
+    # Google Driveから履歴ファイルをダウンロード
     download_history_from_drive()
 
-    # カクヨム.txt から URL を読み込む
-    file_path = os.path.join(os.path.dirname(__file__), 'カクヨム.txt')
-
-    if not os.path.exists(file_path):
-        print(f"エラー: '{file_path}' が存在しません。")
-        sys.exit(1)
-
-    with open(file_path, 'r', encoding='utf-8') as f:
-        urls = f.readlines()
-
-    for url_input in urls:
-        url_input = url_input.strip()
+    # 履歴を読み込んで開始番号を設定
+    while True:
+        url_input = input("カクヨム作品トップページのURLを入力してください: ").strip()
         if re.match(r'https://kakuyomu.jp/works/\d{19,20}', url_input):
             url = url_input
             break
         else:
             print("正しいカクヨム作品トップページURLを入力してください。")
-
-    # ダウンロード経歴を取得し、最終話数を確認
-    get_last_downloaded_episode()
 
     # 目次ページのHTMLを取得
     toppage_content = loadfromhtml(url)
@@ -193,9 +194,13 @@ def main():
     # フォルダ作成
     os.makedirs(novel_name, exist_ok=True)
 
+    # 履歴読み込み
+    read_history()
+
     # 目次解析
     if parsetoppage(toppage_content) == 0:
         loadeachpage()
+
 
 # スクリプト実行
 if __name__ == '__main__':
