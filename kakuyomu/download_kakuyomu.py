@@ -4,12 +4,38 @@ import urllib.request
 import re
 import time
 import os
+import subprocess
 
 # グローバル変数
 page_list = []  # 各話のURL
 url = ''  # 小説URL
 startn = 0  # DL開始番号
 novel_name = ''  # 小説名（自動取得）
+
+# Google Driveからファイルを読み取る
+def download_history_from_drive():
+    # rcloneを使ってGoogle Driveからファイルをローカルにダウンロード
+    cmd = ['rclone', 'copy', 'drive:/カクヨムダウンロード経歴.txt', './カクヨムダウンロード経歴.txt']
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Error downloading history from Google Drive: {result.stderr}")
+        sys.exit(1)
+
+# 経歴ファイルを読み込んで、ダウンロードを再開するための話数を取得
+def get_last_downloaded_episode():
+    global startn
+    history_file = 'カクヨムダウンロード経歴.txt'
+
+    if os.path.exists(history_file):
+        with open(history_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            for line in lines:
+                if line.startswith(url):
+                    startn = int(line.strip().split(" | ")[1])
+                    break
+    else:
+        print("経歴ファイルが存在しません。最初からダウンロードを開始します。")
+        startn = 0
 
 # HTMLファイルのダウンロード
 def loadfromhtml(url: str) -> str:
@@ -126,6 +152,9 @@ def main():
 
     print("kakudlpy ver1.1 2025/03/07 (c) INOUE, masahiro")
 
+    # Google Driveからダウンロード経歴ファイルを取得
+    download_history_from_drive()
+
     # カクヨム.txt から URL を読み込む
     file_path = os.path.join(os.path.dirname(__file__), 'カクヨム.txt')
 
@@ -143,6 +172,9 @@ def main():
             break
         else:
             print("正しいカクヨム作品トップページURLを入力してください。")
+
+    # ダウンロード経歴を取得し、最終話数を確認
+    get_last_downloaded_episode()
 
     # 目次ページのHTMLを取得
     toppage_content = loadfromhtml(url)
