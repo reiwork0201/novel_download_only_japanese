@@ -127,7 +127,7 @@ def main():
     print("kakudlpy ver1.1 2025/03/07 (c) INOUE, masahiro")
 
     # カクヨム.txt から URL を読み込む
-    file_path = os.path.join(os.path.dirname(__file__), 'kakuyomu.txt')
+    file_path = os.path.join(os.path.dirname(__file__), 'カクヨム.txt')
 
     if not os.path.exists(file_path):
         print(f"エラー: '{file_path}' が存在しません。")
