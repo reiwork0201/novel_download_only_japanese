@@ -1,9 +1,9 @@
-name: Download NarouR18 Novels
+name: Download Narou R18 Novels
 
 on:
   schedule:
-    - cron: '0 15 * * *'  # UTCで毎日15:00、JSTでは午前零時に実行
-  workflow_dispatch:     # 手動実行も可
+    - cron: '0 15 * * *'  # JST 00:00（UTC+9 → UTC 15:00）
+  workflow_dispatch:
 
 jobs:
   download:
@@ -26,25 +26,23 @@ jobs:
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      - name: Copy rclone config
-        run: |
-          mkdir -p $HOME/.config/rclone
-          cp ${{ github.workspace }}/rclone.conf $HOME/.config/rclone/rclone.conf
-
-      - name: Run Python Script
+      - name: Run Download Script
         env:
           RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
         run: |
           python narouR18/download_narouR18.py
 
-      - name: Upload Novel Files to Google Drive
+      - name: Upload Novels to Google Drive
         env:
           RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
         run: |
-          rclone copy /tmp/narouR18_dl drive:novels --transfers=4 --checkers=8 --fast-list
+          rclone copy /tmp/narouR18_dl drive: \
+            --exclude "小説家になろうR18ダウンロード経歴.txt" \
+            --transfers=4 --checkers=8 --fast-list
 
-      - name: Upload History File to Google Drive
+      - name: Upload History File to Google Drive Root
         env:
           RCLONE_CONFIG: ${{ github.workspace }}/rclone.conf
         run: |
-          rclone copy /tmp/narouR18_dl/小説家になろうR18ダウンロード経歴.txt drive: --drive-shared-with-me --update
+          rclone copy /tmp/narouR18_dl/小説家になろうR18ダウンロード経歴.txt drive: \
+            --drive-no-clobber=false
