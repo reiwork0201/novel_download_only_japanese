@@ -18,6 +18,11 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
 
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install beautifulsoup4 requests
+
       - name: Run kakuyomu downloader
         run: |
           python3 kakuyomu/download_kakuyomu.py
