@@ -2,21 +2,24 @@ name: Kakuyomu Downloader
 
 on:
   schedule:
-    - cron: "0 0 * * *"  # 日本時間で毎日0時に実行
+    - cron: "0 0 * * *"  # 毎日0時に実行（日本時間の午前0時）
   workflow_dispatch:
 
 jobs:
   download:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Set up rclone
         run: |
+          # rcloneのインストール
           curl https://rclone.org/install.sh | sudo bash
           mkdir -p ~/.config/rclone
-          echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
+          # rclone.confをGitHubリポジトリのrootから読み込む
+          cp $GITHUB_WORKSPACE/rclone.conf ~/.config/rclone/rclone.conf
 
       - name: Install Python dependencies
         run: |
@@ -29,4 +32,5 @@ jobs:
 
       - name: Upload history file to Google Drive
         run: |
+          # rcloneコマンドでファイルをGoogle Driveのルート直下に上書き
           rclone move kakuyomu/カクヨムダウンロード経歴.txt drive:/カクヨムダウンロード経歴.txt --transfers=1 --progress
