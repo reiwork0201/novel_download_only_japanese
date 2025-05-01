@@ -2,36 +2,31 @@ name: Kakuyomu Downloader
 
 on:
   schedule:
-    - cron: "0 15 * * *"  # UTC 15:00 = 日本時間 0:00
+    - cron: "0 0 * * *"  # 毎日0時（日本時間）に実行
   workflow_dispatch:
 
 jobs:
   download:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Set up rclone
         run: |
-          curl https://rclone.org/install.sh -O
-          sudo bash install.sh
+          curl https://rclone.org/install.sh | sudo bash
           mkdir -p ~/.config/rclone
-          cp ./rclone.conf ~/.config/rclone/rclone.conf
+          echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
 
       - name: Install Python dependencies
         run: |
           python3 -m pip install --upgrade pip
           pip install beautifulsoup4 requests
 
-      - name: Download history file from Google Drive
+      - name: Run kakuyomu downloader
         run: |
-          rclone copy drive:/カクヨムダウンロード経歴.txt kakuyomu/ --transfers=1 --progress
-
-      - name: Run Kakuyomu Downloader
-        run: python3 kakuyomu/download_kakuyomu.py
+          python3 kakuyomu/download_kakuyomu.py
 
       - name: Upload history file to Google Drive
         run: |
-          rclone move kakuyomu/カクヨムダウンロード経歴.txt drive:/カクヨムダウンロード経歴.txt --transfers=1 --progress
+          rclone move kakuyomu/カクヨムダウンロード経歴.txt drive:/カクヨムダウンロード経歴.txt --transfers=1 --progress --ignore-existing
