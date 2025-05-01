@@ -1,6 +1,5 @@
 import os
 import requests
-from bs4 import BeautifulSoup
 import re
 import subprocess
 
@@ -9,12 +8,13 @@ HISTORY_FILE = 'カクヨムダウンロード経歴.txt'
 LOCAL_HISTORY_PATH = f'/tmp/{HISTORY_FILE}'
 REMOTE_HISTORY_PATH = f'drive:{HISTORY_FILE}'
 
+
 def fetch_url(url):
     headers = {'User-Agent': 'Mozilla/5.0'}
     return requests.get(url, headers=headers)
 
+
 def load_history():
-    # 履歴ファイルがローカルに存在しない場合、Google Driveから取得する
     if not os.path.exists(LOCAL_HISTORY_PATH):
         subprocess.run(['rclone', 'copyto', REMOTE_HISTORY_PATH, LOCAL_HISTORY_PATH], check=False)
 
@@ -28,14 +28,52 @@ def load_history():
                     history[url.rstrip('/')] = int(last)
     return history
 
+
 def save_history(history):
-    # 履歴ファイルをローカルに保存し、Google Driveにアップロード
     with open(LOCAL_HISTORY_PATH, 'w', encoding='utf-8') as f:
         for url, last in history.items():
             f.write(f'{url}  |  {last}\n')
     subprocess.run(['rclone', 'copyto', LOCAL_HISTORY_PATH, REMOTE_HISTORY_PATH], check=True)
 
-# URL一覧の読み込み（スクリプトと同じディレクトリにあるファイルを参照）
+
+# エピソードURL取得（目次ページの解析）
+def parsetoppage(body: str, base_url: str) -> list[str]:
+    episode_urls = []
+    ep_pattern = r'"__typename":"Episode","id":".*?","title":".*?",'
+    ep_matches = re.findall(ep_pattern, body)
+
+    if not ep_matches:
+        print("指定されたページからエピソード情報を取得できませんでした。")
+        return []
+
+    for ep in ep_matches:
+        purl_id_match = re.search(r'"id":"(.*?)"', ep)
+        if purl_id_match:
+            purl_id = purl_id_match.group(1)
+            purl_full_url = f"{base_url}/episodes/{purl_id}"
+            episode_urls.append(purl_full_url)
+
+    return episode_urls
+
+
+# 各話の本文とタイトル抽出
+def extract_episode_content(body: str) -> tuple[str, str]:
+    title_match = re.search(r'<p class="widget-episodeTitle.*?">.*?</p>', body)
+    title_cleaned = re.sub('<.*?>', '', title_match.group(0)).strip() if title_match else "無題"
+
+    text_body_pattern = r'<p id="p.*?</p>'
+    text_matches = re.findall(text_body_pattern, body)
+
+    text_content = ""
+    for match in text_matches:
+        line = re.sub('<br ?/?>', '\r\n', match)
+        line = re.sub('<.*?>', '', line).replace(' ', '')
+        text_content += line + "\r\n"
+
+    return title_cleaned, text_content
+
+
+# URL一覧の読み込み
 script_dir = os.path.dirname(__file__)
 url_file_path = os.path.join(script_dir, 'カクヨム.txt')
 with open(url_file_path, 'r', encoding='utf-8') as f:
@@ -46,54 +84,40 @@ history = load_history()
 for novel_url in urls:
     try:
         print(f'\n--- 処理開始: {novel_url} ---')
-        url = novel_url
-        sublist = []
+        res = fetch_url(novel_url)
+        body = res.text
 
-        # ページ分割対応
-        while True:
-            res = fetch_url(url)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            title_text = soup.find('title').get_text()
-            sublist += soup.select('.p-eplist__sublist .p-eplist__subtitle')
-            next_page = soup.select_one('.c-pager__item--next')
-            if next_page and next_page.get('href'):
-                url = f'{BASE_URL}{next_page.get("href")}'
-            else:
-                break
-
-        # 不正な文字を削除
+        title_match = re.search(r'<title>(.*?) - カクヨム</title>', body)
+        title_text = title_match.group(1) if title_match else "作品名不明"
         for char in ['<', '>', ':', '"', '/', '\\', '|', '?', '*']:
             title_text = title_text.replace(char, '')
         title_text = title_text.strip()
 
+        episode_urls = parsetoppage(body, novel_url)
         download_from = history.get(novel_url, 0)
+
         os.makedirs(f'/tmp/kakuyomu_dl/{title_text}', exist_ok=True)
 
-        sub_len = len(sublist)
         new_max = download_from
 
-        for i, sub in enumerate(sublist):
+        for i, ep_url in enumerate(episode_urls):
             if i + 1 <= download_from:
                 continue
 
-            sub_title = sub.text.strip()
-            link = sub.get('href')
+            res = fetch_url(ep_url)
+            title, content = extract_episode_content(res.text)
+
             file_name = f'{i+1:03d}.txt'
             folder_num = (i // 999) + 1
             folder_name = f'{folder_num:03d}'
             folder_path = f'/tmp/kakuyomu_dl/{title_text}/{folder_name}'
             os.makedirs(folder_path, exist_ok=True)
-            file_path = f'{folder_path}/{file_name}'
-
-            res = fetch_url(f'{BASE_URL}{link}')
-            soup = BeautifulSoup(res.text, 'html.parser')
-            sub_body = soup.select_one('.p-novel__body')
-            sub_body_text = sub_body.get_text() if sub_body else '[本文が取得できませんでした]'
+            file_path = os.path.join(folder_path, file_name)
 
             with open(file_path, 'w', encoding='UTF-8') as f:
-                f.write(f'{sub_title}\n\n{sub_body_text}')
+                f.write(f'{title}\n\n{content}')
 
-            print(f'{file_name} downloaded in folder {folder_name} ({i+1}/{sub_len})')
+            print(f'{file_name} downloaded in folder {folder_name} ({i+1}/{len(episode_urls)})')
             new_max = i + 1
 
         history[novel_url] = new_max
