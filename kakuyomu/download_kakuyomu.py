@@ -16,7 +16,7 @@ novel_name = ''  # 小説名（自動取得）
 # rcloneを使ってGoogle Driveから経歴ファイルをダウンロード
 def download_history_from_drive():
     # rcloneコマンドを使ってGoogle Driveからカクヨムダウンロード経歴.txtをダウンロード
-    cmd = ['rclone', 'copy', 'drive:/カクヨムダウンロード経歴.txt', './カクヨムダウンロード経歴.txt']
+    cmd = ['rclone', 'copy', 'drive:/カクヨムダウンロード経歴.txt', './kakuyomuダウンロード経歴.txt']
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Error downloading history from Google Drive: {result.stderr}")
@@ -27,8 +27,8 @@ def download_history_from_drive():
 # 履歴ファイルを解析して開始番号を設定
 def read_history():
     global startn
-    if os.path.exists('./カクヨムダウンロード経歴.txt'):
-        with open('./カクヨムダウンロード経歴.txt', 'r', encoding='utf-8') as f:
+    if os.path.exists('./kakuyomuダウンロード経歴.txt'):
+        with open('./kakuyomuダウンロード経歴.txt', 'r', encoding='utf-8') as f:
             history = f.readlines()
         
         # 履歴の読み込みと開始番号設定
