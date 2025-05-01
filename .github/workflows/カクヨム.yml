@@ -25,9 +25,13 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install beautifulsoup4 requests
 
+      - name: Download history file from Google Drive
+        run: |
+          rclone copy drive:/カクヨムダウンロード経歴.txt kakuyomu/ --transfers=1 --progress
+
       - name: Run Kakuyomu Downloader
         run: python3 kakuyomu/download_kakuyomu.py
 
       - name: Upload history file to Google Drive
         run: |
-          rclone move kakuyomu/カクヨムダウンロード経歴.txt drive:/kakuyomu_dl/ --transfers=1 --progress
+          rclone move kakuyomu/カクヨムダウンロード経歴.txt drive:/カクヨムダウンロード経歴.txt --transfers=1 --progress
