@@ -1,137 +1,110 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-import rclone
+import re
+import subprocess
 
 BASE_URL = 'https://novel18.syosetu.com'
-HISTORY_FILE_PATH = '/tmp/narouR18_dl/小説家になろうR18ダウンロード経歴.txt'
+HISTORY_FILE = '小説家になろうR18ダウンロード経歴.txt'
+LOCAL_HISTORY_PATH = f'/tmp/{HISTORY_FILE}'
+REMOTE_HISTORY_PATH = f'drive:{HISTORY_FILE}'
+COOKIES = {'over18': 'yes'}
+
 
 def fetch_url(url):
-    """
-    指定されたURLからウェブページの内容を取得します。
-    User-AgentヘッダーとCookieを設定して、アクセスをエミュレートします。
-    """
-    ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'
-    headers = {'User-Agent': ua}
-    cookies = {'over18': 'yes'}
-    return requests.get(url, headers=headers, cookies=cookies)
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    return requests.get(url, headers=headers, cookies=COOKIES)
 
-def create_folder(path):
-    """
-    指定されたパスにフォルダを作成します。
-    フォルダが既に存在する場合は、エラーを無視します。
-    """
-    os.makedirs(path, exist_ok=True)
 
-def sanitize_filename(filename):
-    """
-    ファイル名からWindowsで許可されていない文字を削除します。
-    """
-    invalid_chars = r'\/:*?"<>|'
-    return ''.join(c for c in filename if c not in invalid_chars)
+def load_history():
+    if not os.path.exists(LOCAL_HISTORY_PATH):
+        subprocess.run(['rclone', 'copyto', REMOTE_HISTORY_PATH, LOCAL_HISTORY_PATH], check=False)
 
-def read_history_from_drive():
-    """
-    Google Drive から履歴ファイルを読み込み、最終話数を取得します。
-    """
-    rclone.copy('drive:小説家になろうR18ダウンロード経歴.txt', HISTORY_FILE_PATH)
-    
     history = {}
-    if os.path.exists(HISTORY_FILE_PATH):
-        with open(HISTORY_FILE_PATH, 'r', encoding='UTF-8') as f:
-            lines = f.readlines()
-        for line in lines:
-            url, last_chapter = line.split(' | ')
-            history[url.strip()] = int(last_chapter.strip())
+    if os.path.exists(LOCAL_HISTORY_PATH):
+        with open(LOCAL_HISTORY_PATH, 'r', encoding='utf-8') as f:
+            for line in f:
+                match = re.match(r'(https?://[^\s|]+)\s*\|\s*(\d+)', line.strip())
+                if match:
+                    url, last = match.groups()
+                    history[url.rstrip('/')] = int(last)
     return history
 
-def update_history_to_drive(novel_url, last_chapter):
-    """
-    履歴ファイルを更新し、そのファイルを Google Drive にアップロードします。
-    """
-    with open(HISTORY_FILE_PATH, 'a', encoding='UTF-8') as f:
-        f.write(f'{novel_url} | {last_chapter}\n')
 
-    # Google Drive に上書きアップロード
-    rclone.copy(HISTORY_FILE_PATH, 'drive:小説家になろうR18ダウンロード経歴.txt')
+def save_history(history):
+    with open(LOCAL_HISTORY_PATH, 'w', encoding='utf-8') as f:
+        for url, last in history.items():
+            f.write(f'{url}  |  {last}\n')
+    subprocess.run(['rclone', 'copyto', LOCAL_HISTORY_PATH, REMOTE_HISTORY_PATH], check=True)
 
-def download_novel(novel_id, history):
-    """
-    小説のURLを指定して、その小説をダウンロードします。
-    """
-    DOWNLOAD_URL = f'{BASE_URL}/{novel_id}/'
-    url = DOWNLOAD_URL
-    sublist = []
-    title_text = ""
-    last_chapter = history.get(DOWNLOAD_URL, 0)  # 履歴ファイルに基づき開始話数を決定
 
-    while True:
-        res = fetch_url(url)
-        soup = BeautifulSoup(res.text, 'html.parser')
+# URL一覧の読み込み（スクリプトと同じディレクトリにあるファイルを参照）
+script_dir = os.path.dirname(__file__)
+url_file_path = os.path.join(script_dir, '小説家になろうR18.txt')
+with open(url_file_path, 'r', encoding='utf-8') as f:
+    urls = [line.strip().rstrip('/') for line in f if line.strip().startswith('http')]
 
-        if not title_text:
+history = load_history()
+
+for novel_url in urls:
+    try:
+        print(f'\n--- 処理開始: {novel_url} ---')
+        url = novel_url
+        sublist = []
+
+        # ページ分割対応
+        while True:
+            res = fetch_url(url)
+            soup = BeautifulSoup(res.text, 'html.parser')
             title_text = soup.find('title').get_text()
+            sublist += soup.select('.p-eplist__sublist .p-eplist__subtitle')
+            next = soup.select_one('.c-pager__item--next')
+            if next and next.get('href'):
+                url = f'{BASE_URL}{next.get("href")}'
+            else:
+                break
 
-        sublist.extend(soup.select('.p-eplist__sublist .p-eplist__subtitle'))
+        for char in ['<', '>', ':', '"', '/', '\\', '|', '?', '*']:
+            title_text = title_text.replace(char, '')
+        title_text = title_text.strip()
 
-        next_page = soup.select_one('.c-pager__item--next')
-        if next_page and next_page.get('href'):
-            url = f'{BASE_URL}{next_page["href"]}'
-        else:
-            break
+        download_from = history.get(novel_url, 0)
+        os.makedirs(f'/tmp/narouR18_dl/{title_text}', exist_ok=True)
 
-    title_text = sanitize_filename(title_text)
-    create_folder(f'./{title_text}')
+        sub_len = len(sublist)
+        new_max = download_from
 
-    # 最初にダウンロードする話数は履歴に基づく
-    file_count = last_chapter + 1
-    sub_len = len(sublist)
+        for i, sub in enumerate(sublist):
+            if i + 1 <= download_from:
+                continue
 
-    # 履歴をもとに、次にダウンロードすべき話からダウンロードを開始する
-    for i, sub in enumerate(sublist[last_chapter:], start=file_count):
-        sub_title = sub.text.strip()
-        link = sub.get('href')
+            sub_title = sub.text.strip()
+            link = sub.get('href')
+            file_name = f'{i+1:03d}.txt'
+            folder_num = (i // 999) + 1
+            folder_name = f'{folder_num:03d}'
+            folder_path = f'/tmp/narou_dl/{title_text}/{folder_name}'
+            os.makedirs(folder_path, exist_ok=True)
+            file_path = f'{folder_path}/{file_name}'
 
-        folder_num = ((i - 1) // 999) + 1
-        folder_name = f'{folder_num:03d}'
-        folder_path = f'./{title_text}/{folder_name}'
-        create_folder(folder_path)
+            res = fetch_url(f'{BASE_URL}{link}')
+            soup = BeautifulSoup(res.text, 'html.parser')
+            sub_body = soup.select_one('.p-novel__body')
+            sub_body_text = sub_body.get_text() if sub_body else '[本文が取得できませんでした]'
 
-        file_name = f'{i:03d}.txt'
-        file_path = f'{folder_path}/{file_name}'
+            with open(file_path, 'w', encoding='UTF-8') as f:
+                f.write(f'{sub_title}\n\n{sub_body_text}')
 
-        if os.path.exists(file_path):
-            print(f'{file_name} は既に存在します。スキップします... ({i}/{sub_len})')
-            continue
+            print(f'{file_name} downloaded in folder {folder_name} ({i+1}/{sub_len})')
+            new_max = i + 1
 
-        res = fetch_url(f'{BASE_URL}{link}')
-        soup = BeautifulSoup(res.text, 'html.parser')
-        sub_body_text = soup.select_one('.p-novel__body').text
+        history[novel_url] = new_max
 
-        with open(file_path, 'w', encoding='UTF-8') as f:
-            f.write(sub_body_text)
+    except Exception as e:
+        print(f'エラー発生: {novel_url} → {e}')
+        continue
 
-        print(f'{file_name} をダウンロードしました ({i}/{sub_len})')
+save_history(history)
 
-    # 最後にダウンロードした話数を履歴として記録
-    update_history_to_drive(DOWNLOAD_URL, file_count + len(sublist[last_chapter:]) - 1)
-
-def main():
-    """
-    メイン関数：
-    1. 小説IDをリポジトリの履歴ファイルから取得
-    2. 各小説をダウンロード
-    """
-    history = read_history_from_drive()
-
-    # 小説家になろうR18.txt から URL を取得
-    with open('./narouR18/小説家になろうR18.txt', 'r', encoding='UTF-8') as f:
-        urls = f.readlines()
-
-    for url in urls:
-        url = url.strip()
-        novel_id = url.split('/')[-2]  # ID を URL から抽出
-        download_novel(novel_id, history)
-
-if __name__ == '__main__':
-    main()
+# Google Driveへアップロード
+subprocess.run(['rclone', 'copy', '/tmp/narouR18_dl', 'drive:', '--transfers=4', '--checkers=8', '--fast-list'], check=True)
