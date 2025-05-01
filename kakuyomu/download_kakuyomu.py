@@ -7,30 +7,12 @@ from bs4 import BeautifulSoup
 
 BASE_URL = "https://kakuyomu.jp"
 DOWNLOAD_DIR = "/tmp/kakuyomu_dl"
-HISTORY_FILE = "/tmp/カクヨムダウンロード経歴.txt"  # ローカルに保存されるように変更
+HISTORY_FILE = "kakuyomu/カクヨムダウンロード経歴.txt"
 NOVEL_LIST_FILE = "kakuyomu/カクヨム.txt"
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Google Driveからhistoryファイルをダウンロード
-def download_history_from_drive():
-    subprocess.run([
-        "rclone", "copy", "drive:/カクヨムダウンロード経歴.txt", HISTORY_FILE,
-        "--progress"
-    ], check=True)
-
-# Google Driveにhistoryファイルをアップロード
-def upload_history_to_drive():
-    subprocess.run([
-        "rclone", "move", HISTORY_FILE, "drive:/カクヨムダウンロード経歴.txt",
-        "--progress"
-    ], check=True)
-
 def read_history():
-    # HISTORY_FILEがディレクトリでないか確認
-    if os.path.isdir(HISTORY_FILE):
-        raise IsADirectoryError(f"{HISTORY_FILE}はディレクトリです。")
-
     history = {}
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, encoding="utf-8") as f:
@@ -67,7 +49,6 @@ def get_novel_title(novel_url):
     return soup.select_one("h1.widget-title").text.strip()
 
 def main():
-    download_history_from_drive()  # Google Driveから履歴をダウンロード
     history = read_history()
 
     with open(NOVEL_LIST_FILE, encoding="utf-8") as f:
@@ -100,7 +81,6 @@ def main():
         print(f"  → {len(to_download)}話ダウンロード完了")
 
     write_history(history)
-    upload_history_to_drive()  # 処理後に履歴をGoogle Driveにアップロード
 
     # Google Driveへアップロード
     subprocess.run([
