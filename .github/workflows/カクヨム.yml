@@ -33,4 +33,4 @@ jobs:
       - name: Upload history file to Google Drive
         run: |
           # rcloneコマンドでファイルをGoogle Driveのルート直下に上書き
-          rclone move kakuyomu/カクヨムダウンロード経歴.txt drive:/カクヨムダウンロード経歴.txt --transfers=1 --progress
+          rclone move kakuyomu/カクヨムダウンロード経歴.txt drive:/ --transfers=1 --progress
