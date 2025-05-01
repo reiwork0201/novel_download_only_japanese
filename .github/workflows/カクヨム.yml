@@ -30,3 +30,7 @@ jobs:
       - name: Upload history file to Google Drive
         run: |
           rclone move kakuyomu/カクヨムダウンロード経歴.txt drive:/カクヨムダウンロード経歴.txt --transfers=1 --progress --ignore-existing
+
+      - name: Upload downloaded files to Google Drive
+        run: |
+          rclone copy /tmp/kakuyomu_dl drive:/ --transfers=4 --checkers=8 --fast-list
