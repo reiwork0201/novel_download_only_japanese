@@ -83,21 +83,21 @@ def download_novel(novel_id, history):
     file_count = last_chapter + 1
     sub_len = len(sublist)
 
-    for i, sub in enumerate(sublist[last_chapter:], 1):
+    # 履歴をもとに、次にダウンロードすべき話からダウンロードを開始する
+    for i, sub in enumerate(sublist[last_chapter:], start=file_count):
         sub_title = sub.text.strip()
         link = sub.get('href')
 
-        folder_num = ((file_count - 1) // 999) + 1
+        folder_num = ((i - 1) // 999) + 1
         folder_name = f'{folder_num:03d}'
         folder_path = f'./{title_text}/{folder_name}'
         create_folder(folder_path)
 
-        file_name = f'{file_count:03d}.txt'
+        file_name = f'{i:03d}.txt'
         file_path = f'{folder_path}/{file_name}'
 
         if os.path.exists(file_path):
             print(f'{file_name} は既に存在します。スキップします... ({i}/{sub_len})')
-            file_count += 1
             continue
 
         res = fetch_url(f'{BASE_URL}{link}')
@@ -108,9 +108,9 @@ def download_novel(novel_id, history):
             f.write(sub_body_text)
 
         print(f'{file_name} をダウンロードしました ({i}/{sub_len})')
-        file_count += 1
 
-    update_history(DOWNLOAD_URL, file_count - 1)
+    # 最後にダウンロードした話数を履歴として記録
+    update_history(DOWNLOAD_URL, file_count + len(sublist[last_chapter:]) - 1)
 
 def main():
     """
