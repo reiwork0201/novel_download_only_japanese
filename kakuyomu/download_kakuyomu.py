@@ -11,8 +11,8 @@ page_list = []  # 各話のURL
 url = ''  # 小説URL
 startn = 0  # DL開始番号
 novel_name = ''  # 小説名（自動取得）
-history_file = 'カクヨムダウンロード経歴.txt'  # 履歴ファイルのパス
-history = {}  # URL | 最終話数の履歴情報
+history_file = '/tmp/kakuyomu_dl/カクヨムダウンロード経歴.txt'  # 履歴ファイル
+history_content = {}  # 履歴内容
 
 # HTMLファイルのダウンロード
 def loadfromhtml(url: str) -> str:
@@ -20,19 +20,23 @@ def loadfromhtml(url: str) -> str:
         html_content = res.read().decode()
     return html_content
 
+
 # 余分なタグを除去
 def elimbodytags(base: str) -> str:
     return re.sub('<.*?>', '', base).replace(' ', '')
 
+
 # 改行タグを変換
 def changebrks(base: str) -> str:
     return re.sub('<br />', '\r\n', base)
+
 
 # タグ変換とフィルター実行
 def tagfilter(line: str) -> str:
     tmp = changebrks(line)
     tmp = elimbodytags(tmp)
     return tmp
+
 
 # 小説タイトルの取得
 def get_novel_title(body: str) -> str:
@@ -43,6 +47,7 @@ def get_novel_title(body: str) -> str:
         title = re.sub(r'[\\/:*?"<>|]', '', title)
         return title
     return "無題"
+
 
 # 目次ページの解析と各話のURL取得
 def parsetoppage(body: str) -> int:
@@ -67,6 +72,7 @@ def parsetoppage(body: str) -> int:
 
     print(f"{len(page_list)} 話の目次情報を取得しました。")
     return 0
+
 
 # 各話の本文解析と保存処理
 def parsepage(body: str, index: int):
@@ -111,6 +117,7 @@ def parsepage(body: str, index: int):
         else:
             print(f"{index} 話の本文が見つかりませんでした。")
 
+
 # 各話のページをダウンロードして保存
 def loadeachpage() -> int:
     n_pages_to_download = len(page_list)
@@ -123,44 +130,58 @@ def loadeachpage() -> int:
 
     print(f"{n_pages_to_download - startn} 話のエピソードを取得しました。")
 
-# 小説ファイルを Google Drive にアップロード
-def upload_to_drive():
-    # Google Drive にアップロードする処理を subprocess で実行
-    os.system(f"rclone move {novel_name} drive:/kakuyomu_dl/ --create-dirs --transfers=1 --progress")
-    print(f"{novel_name} を Google Drive にアップロードしました。")
 
-# 履歴ファイルを読み込む
-def load_history():
-    global history
+# Google Drive にファイルをアップロードする関数
+def upload_to_drive():
     try:
-        # Google Drive から履歴ファイルをダウンロード
-        subprocess.run(["rclone", "copy", "drive:/カクヨムダウンロード経歴.txt", history_file, "--progress"])
-        # 履歴ファイルを読み込む
+        # ローカルの小説データを Google Drive にアップロード
+        subprocess.run([
+            'rclone', 'move', '--config', './rclone.conf', 
+            '/tmp/kakuyomu_dl/', 'drive:/', '--create-dirs', '--transfers', '4', '--checkers', '8'
+        ], check=True)
+        print("小説データを Google Drive にアップロードしました。")
+    except subprocess.CalledProcessError as e:
+        print(f"rclone エラー: {e}")
+
+
+# 履歴ファイルを Google Drive からダウンロードする
+def load_history():
+    global history_content
+    try:
+        subprocess.run([
+            'rclone', 'copy', '--config', './rclone.conf', 
+            'drive:/カクヨムダウンロード経歴.txt', history_file
+        ], check=True)
         with open(history_file, 'r', encoding='utf-8') as f:
             for line in f:
-                url, last_chapter = line.strip().split(' | ')
-                history[url] = int(last_chapter)
-    except Exception as e:
-        print(f"履歴の読み込みに失敗しました: {e}")
+                url, last_episode = line.strip().split(' | ')
+                history_content[url] = int(last_episode)
+        print("履歴ファイルを読み込みました。")
+    except subprocess.CalledProcessError as e:
+        print(f"履歴ファイルの読み込みエラー: {e}")
 
-# 履歴ファイルをアップロードする
+
+# 履歴ファイルを Google Drive にアップロードする
 def upload_history():
     try:
-        subprocess.run(["rclone", "copy", history_file, "drive:/カクヨムダウンロード経歴.txt", "--progress"])
+        subprocess.run([
+            'rclone', 'copy', '--config', './rclone.conf', 
+            history_file, 'drive:/カクヨムダウンロード経歴.txt'
+        ], check=True)
         print("履歴ファイルを Google Drive にアップロードしました。")
-    except Exception as e:
-        print(f"履歴のアップロードに失敗しました: {e}")
+    except subprocess.CalledProcessError as e:
+        print(f"履歴ファイルのアップロードエラー: {e}")
 
-# 履歴に基づいてダウンロード開始位置を決定
+
+# 履歴に基づきダウンロード開始位置を設定
 def set_start_index():
     global startn
-    # 履歴に基づいて最終話数を取得
-    if url in history:
-        startn = history[url] + 1  # 次の話からダウンロード開始
-        print(f"履歴に基づき、{startn} 話目からダウンロードを開始します。")
+    if url in history_content:
+        startn = history_content[url] + 1
     else:
-        startn = 0  # 履歴がなければ最初から
-        print("履歴がないため、最初からダウンロードを開始します。")
+        startn = 1
+    print(f"ダウンロード開始位置: {startn}")
+
 
 # メイン処理
 def main():
@@ -168,54 +189,54 @@ def main():
 
     print("kakudlpy ver1.1 2025/03/07 (c) INOUE, masahiro")
 
-    # カクヨム.txt から URL を取得
-    try:
-        with open('kakuyomu/カクヨム.txt', 'r', encoding='utf-8') as f:
-            url_input = f.readline().strip()  # URL を読み取る
+    while True:
+        # カクヨム.txt から URL を読み込む
+        with open('kakuyomu/kakuyomu.txt', 'r', encoding='utf-8') as f:
+            urls = f.readlines()
+        
+        for url_input in urls:
+            url_input = url_input.strip()
             if re.match(r'https://kakuyomu.jp/works/\d{19,20}', url_input):
                 url = url_input
-                print(f"取得したURL: {url}")
+                break
             else:
-                print("正しいカクヨム作品トップページURLがカクヨム.txtにありません。")
-                return
-    except FileNotFoundError:
-        print("カクヨム.txt ファイルが見つかりません。")
-        return
+                print("正しいカクヨム作品トップページURLを入力してください。")
+        
+        # 目次ページのHTMLを取得
+        toppage_content = loadfromhtml(url)
 
-    # 履歴ファイルを読み込む
-    load_history()
+        if not toppage_content:
+            print("ページの取得に失敗しました。")
+            return
 
-    # 目次ページのHTMLを取得
-    toppage_content = loadfromhtml(url)
+        # 小説タイトルを取得
+        novel_name = get_novel_title(toppage_content)
+        print(f"取得した小説名: {novel_name}")
 
-    if not toppage_content:
-        print("ページの取得に失敗しました。")
-        return
+        # フォルダ名として使用できない文字を削除
+        novel_name = re.sub(r'[\\/:*?"<>|]', '', novel_name)
 
-    # 小説タイトルを取得
-    novel_name = get_novel_title(toppage_content)
-    print(f"取得した小説名: {novel_name}")
+        # フォルダ作成
+        os.makedirs(novel_name, exist_ok=True)
 
-    # フォルダ名として使用できない文字を削除
-    novel_name = re.sub(r'[\\/:*?"<>|]', '', novel_name)
+        # 履歴を読み込む
+        load_history()
 
-    # フォルダ作成
-    os.makedirs(novel_name, exist_ok=True)
+        # 履歴に基づきダウンロード開始位置を設定
+        set_start_index()
 
-    # 履歴に基づいてダウンロード開始位置を決定
-    set_start_index()
+        # 目次解析
+        if parsetoppage(toppage_content) == 0:
+            loadeachpage()
 
-    # 目次解析
-    if parsetoppage(toppage_content) == 0:
-        loadeachpage()
+        # 小説ファイルのアップロード
+        upload_to_drive()
 
-    # 小説ファイルのアップロード
-    upload_to_drive()
+        # 新しい履歴を保存してアップロード
+        with open(history_file, 'w', encoding='utf-8') as f:
+            f.write(f"{url} | {len(page_list)}\n")
+        upload_history()
 
-    # 新しい履歴を保存してアップロード
-    with open(history_file, 'w', encoding='utf-8') as f:
-        f.write(f"{url} | {len(page_list)}\n")
-    upload_history()
 
 # スクリプト実行
 if __name__ == '__main__':
