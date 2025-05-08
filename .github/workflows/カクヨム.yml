@@ -1,4 +1,4 @@
-name: Kakuyomu Downloader
+name: Download Kakuyomu Novels
 
 on:
   schedule:
