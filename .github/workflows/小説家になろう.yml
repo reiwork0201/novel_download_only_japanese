@@ -1,5 +1,7 @@
 name: Download Narou Novels
 
+on:
+  
   workflow_dispatch:       # 手動実行も許可
 
 jobs:
