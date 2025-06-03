@@ -1,8 +1,6 @@
 name: Download Kakuyomu Novels
 
 on:
-  schedule:
-  - cron: '0 15 * * *'  # 毎日0時に実行（日本時間の午前0時）
   workflow_dispatch:
 
 jobs:
