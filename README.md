@@ -1,1 +1,1 @@
-# novel_download
+個人で使用しています。
